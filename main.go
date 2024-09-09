@@ -1,29 +1,29 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 )
 
-type Server struct{}
+// func (serverHandler) ServeHTTP(http.ResponseWriter, *http.Request) {
 
-func (Server) ServeHTTP(http.ResponseWriter, *http.Request) {}
+// }
 
 func main() {
-
-	// 1. Create a new http.ServeMux
+	const port = "8080" 
 	mux := http.NewServeMux()
-	mux.Handle("/localhost", Server{})
-	mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		// The "/" pattern matches everything, so we need to check 
-		// that we're at the root here 
-		if req.URL.Path != "/ok" {
-			http.NotFound(w, req)
-			return
-		}
-		fmt.Fprintf(w, "Home Page")
-	})
 
-	http.ListenAndServe(":8080", mux)
+	server := &http.Server{
+		Addr: ":" + port,
+		Handler: mux,
+	}
+	
+	fileServer := http.FileServer(http.Dir("."))
+	mux.Handle("/", fileServer)
+
+	log.Printf("Serving on port: %s\n", port)
+	http.ListenAndServe(server.Addr, server.Handler)
+	
+	
 
 }
