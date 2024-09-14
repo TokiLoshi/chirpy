@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 )
 
 type apiConfig struct {
@@ -40,9 +41,9 @@ func main() {
 	apiCfg := apiConfig{}
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(handler))
 	// Handle Readiness function
-	mux.HandleFunc("/healthz", readinessHandler)
-	mux.HandleFunc("/metrics", apiCfg.hitHandler)
-	mux.HandleFunc("/reset", apiCfg.resetHandler)
+	mux.HandleFunc("GET /api/healthz", readinessHandler)
+	mux.HandleFunc("GET /admin/metrics", apiCfg.hitHandler)
+	mux.HandleFunc("GET /api/reset", apiCfg.resetHandler)
 	
 
 	srv := &http.Server{
@@ -63,9 +64,21 @@ func readinessHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (c *apiConfig) hitHandler(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	
+	hits := c.fileserveHits
+	data, err := os.ReadFile("./admin.html")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Printf("We got an error reading the admin html: %v", err)
+		fmt.Fprint(w, "Internal Server Error")
+		return
+	}
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Hits: %d", c.fileserveHits)
+	stringifiedData := string(data)
+	htmlContent := fmt.Sprintf(stringifiedData, hits)
+	fmt.Fprint(w, htmlContent)
+
 }
 
 func (c *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
