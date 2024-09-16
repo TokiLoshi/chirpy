@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 )
 
 func (c *apiConfig) validateChirp(w http.ResponseWriter, r *http.Request) {
@@ -19,7 +20,7 @@ func (c *apiConfig) validateChirp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type okStruct struct {
-		Valid bool `json:"valid"`
+		Valid string `json:"cleaned_body"`
 	}
 
 	// define a new decoder and params 
@@ -39,8 +40,15 @@ func (c *apiConfig) validateChirp(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
 		dat, err = json.Marshal(returnErr{Error: "Chirp is too long"})
 	} else {
+		words := strings.Split(params.Body, " ")
+		var cleanedWords []string
+		for _, word := range words {
+			cleanedWords = append(cleanedWords, cleanProfane(word))
+		}
+		newChirp := strings.Join(cleanedWords, " ")
+
 		w.WriteHeader(200)
-		dat, err = json.Marshal(okStruct{Valid:true})
+		dat, err = json.Marshal(okStruct{Valid:newChirp})
 	}
 
 	if err != nil {
@@ -51,4 +59,20 @@ func (c *apiConfig) validateChirp(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(dat)
+}
+
+func cleanProfane(chirp string) string {
+	profane := strings.ToLower(chirp)
+	cleanChirp := profane
+	switch profane {
+	case "kerfuffle":
+		cleanChirp = "****"
+	case "sharbert":
+		cleanChirp = "****"
+	case "fornax":
+		cleanChirp = "****"
+	default:
+		cleanChirp = chirp
+	}
+	return cleanChirp
 }
