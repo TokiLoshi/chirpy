@@ -1,19 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
-	"os"
 )
 
 type apiConfig struct {
 	fileserveHits int
 }
 
-func (c *apiConfig) reset() {
-	c.fileserveHits = 0
-}
+
 
 func (c *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 	
@@ -44,6 +40,7 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", readinessHandler)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.hitHandler)
 	mux.HandleFunc("GET /api/reset", apiCfg.resetHandler)
+	mux.HandleFunc("POST /api/validate_chirp", apiCfg.validateChirp)
 	
 
 	srv := &http.Server{
@@ -56,35 +53,7 @@ func main() {
 	
 }
 
-func readinessHandler(w http.ResponseWriter, req *http.Request) {
-	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(http.StatusText(http.StatusOK)))
 
-}
 
-func (c *apiConfig) hitHandler(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	
-	hits := c.fileserveHits
-	data, err := os.ReadFile("./admin.html")
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Printf("We got an error reading the admin html: %v", err)
-		fmt.Fprint(w, "Internal Server Error")
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	stringifiedData := string(data)
-	htmlContent := fmt.Sprintf(stringifiedData, hits)
-	fmt.Fprint(w, htmlContent)
 
-}
 
-func (c *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("resetting fileserveHits")
-	c.reset()
-	w.Header().Set("Content-Type", "text/lain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Status reset to %d", c.fileserveHits)
-}
