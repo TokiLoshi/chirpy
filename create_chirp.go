@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 )
 
-func (c *apiConfig) validateChirp(w http.ResponseWriter, r *http.Request) {
+func (c *apiConfig) createChirp(w http.ResponseWriter, r *http.Request) {
 	
 	// define the struct parameters 
 	type parameters struct {
@@ -36,6 +37,8 @@ func (c *apiConfig) validateChirp(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	var dat []byte
+
+	// Handle chirps that are too long 
 	if len(params.Body) > 140 {
 		w.WriteHeader(400)
 		dat, err = json.Marshal(returnErr{Error: "Chirp is too long"})
@@ -47,6 +50,22 @@ func (c *apiConfig) validateChirp(w http.ResponseWriter, r *http.Request) {
 		}
 		newChirp := strings.Join(cleanedWords, " ")
 
+		// Open the json file 
+		file, err := os.Open("./database.json")
+		if err != nil {
+			fmt.Printf("error opening json file: %v\n", err)
+		}
+		defer file.Close()
+
+		// Read in data 
+		data := make([]byte, 100)
+		count, err := file.Read(data)
+		if err != nil {
+			fmt.Printf("error reading json file: %v\n", err)
+		}
+		fmt.Printf("read: %d bytes: %q\n", count, data[:count])
+		parameters.Id = count + 1
+
 		w.WriteHeader(200)
 		dat, err = json.Marshal(okStruct{Valid:newChirp})
 	}
@@ -57,22 +76,28 @@ func (c *apiConfig) validateChirp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//Chirp is ok we can return it 
+	
+	// Assign a unique id (we're just incrementing chirps by 1)
+	// Save it to disk 
+	// if all goes well respond with a 201 status code 
+	// return full chirp resource 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(dat)
 }
 
-func cleanProfane(chirp string) string {
-	profane := strings.ToLower(chirp)
-	cleanChirp := profane
-	switch profane {
-	case "kerfuffle":
-		cleanChirp = "****"
-	case "sharbert":
-		cleanChirp = "****"
-	case "fornax":
-		cleanChirp = "****"
-	default:
-		cleanChirp = chirp
-	}
-	return cleanChirp
-}
+// func cleanProfane(chirp string) string {
+// 	profane := strings.ToLower(chirp)
+// 	cleanChirp := profane
+// 	switch profane {
+// 	case "kerfuffle":
+// 		cleanChirp = "****"
+// 	case "sharbert":
+// 		cleanChirp = "****"
+// 	case "fornax":
+// 		cleanChirp = "****"
+// 	default:
+// 		cleanChirp = chirp
+// 	}
+// 	return cleanChirp
+// }
