@@ -7,12 +7,12 @@ import (
 )
 
 // Writes database file to disk
-func (db *DB) writeDB(dbStructure DBStructure) error {
-	
-	db.mux.Lock()
-	defer db.mux.Unlock()
+func (db *DB) WriteDB(dbStructure DBStructure) error {
+	fmt.Printf("We're getting into the write db with: %v\n", dbStructure)
+	// db.mux.Lock()
+	// defer db.mux.Unlock()
 
-	fmt.Println("writing file to disk")
+	fmt.Printf("writing file to disk")
 	filepath := db.path 
 
 	// Marshall the data 

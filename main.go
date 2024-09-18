@@ -3,10 +3,13 @@ package main
 import (
 	"log"
 	"net/http"
+
+	"github.com/TokiLoshi/chirpy/internal/database"
 )
 
 type apiConfig struct {
 	fileserveHits int
+	DB *database.DB
 }
 
 
@@ -26,6 +29,10 @@ func (c *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 func main() {
 	const port = "8080"
 	const filepathRoot = "."
+	db, err := database.NewDB("./databse.json")
+	if err != nil {
+		log.Fatalf("Failed to initialize the database: %v", err)
+	}
 
 	// Create new multiplexer 
 	mux := http.NewServeMux()
@@ -34,15 +41,17 @@ func main() {
 	// Handle root and strip out the last '/'
 	handler :=  http.StripPrefix("/app/", fileServer)
 	// Handle the root with the middleware 
-	apiCfg := apiConfig{}
+	apiCfg := apiConfig{
+		DB: db,
+	}
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(handler))
 	// Handle Readiness function
-	mux.HandleFunc("GET /api/healthz", readinessHandler)
-	mux.HandleFunc("GET /admin/metrics", apiCfg.hitHandler)
-	mux.HandleFunc("GET /api/reset", apiCfg.resetHandler)
+	mux.HandleFunc("/api/healthz", readinessHandler)
+	mux.HandleFunc("/admin/metrics", apiCfg.hitHandler)
+	mux.HandleFunc("/api/reset", apiCfg.resetHandler)
 	// mux.HandleFunc("POST /api/validate_chirp", apiCfg.validateChirp)
-	mux.HandleFunc("POST /api/create_chirp", apiCfg.createChirp)
-	mux.HandleFunc("GET /api/read_chirp", apiCfg.readChirp)
+	mux.HandleFunc("/api/chirps", apiCfg.createChripHandler)
+
 
 	srv := &http.Server{
 		Addr: ":" + port,
