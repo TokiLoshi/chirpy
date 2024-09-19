@@ -9,13 +9,13 @@ type parameters struct {
 	Body string `json:"body"`
 }
 
-type returnErr struct {
-	Error string `json:"error"` 
-}
+// type returnErr struct {
+// 	Error string `json:"error"` 
+// }
 
-type okStruct struct {
-	Valid string `json:"cleaned_body"`
-}
+// type okStruct struct {
+// 	Valid string `json:"cleaned_body"`
+// }
 
 func respondWithError(w http.ResponseWriter, code int, msg string) {
 	w.WriteHeader(code)

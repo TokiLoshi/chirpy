@@ -5,6 +5,42 @@ import (
 	"strings"
 )
 
+func (db *DB) CreateUser(body string) (User, error) {
+	fmt.Println("Creating a new user")
+	db.mux.Lock()
+	defer db.mux.Unlock()
+
+	newUser := User{}
+
+	email := body 
+	dbStructure, err := db.LoadDB()
+	if err != nil {
+		return User{}, fmt.Errorf("error loading db: %w", err)
+	}
+	fmt.Printf("Finished loading db: %v\n", dbStructure)
+
+	newId := highestUserId(dbStructure) + 1 
+	fmt.Printf("Assigning new user: %v\n", newId)
+
+	newUser = User {
+		Id: newId, 
+		Email: email, 
+	}
+	fmt.Printf("New user: %v\n", newUser)
+
+	dbStructure.Users[newUser.Id] = newUser 
+
+	fmt.Printf("adding user to db struct: %v\n", dbStructure)
+
+	err = db.WriteDB(dbStructure)
+	if err != nil {
+		return User{}, fmt.Errorf("error writing user to db: %v", err)
+	}
+	fmt.Println("finished writing user to db ")
+
+	return newUser, nil 
+}
+
 // CreateChirp creates a new chirp and saves it to disk
 func (db *DB) CreateChirp(body string) (Chirp, error) {
 	fmt.Println("Creating a new chirp")
@@ -58,6 +94,16 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 
 	// Write the chirp 
 	return newChirp, nil
+}
+
+func highestUserId(users DBStructure) int {
+	highestId := 0 
+	for _, user := range users.Users {
+		if user.Id > highestId {
+			highestId = user.Id
+		}
+	}
+	return highestId
 }
 
 func highestId(chirps DBStructure) int {
