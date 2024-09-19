@@ -10,7 +10,7 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 	fmt.Println("Getting all the chirps")
 	db.mux.Lock()
 	defer db.mux.Unlock()
-
+	
 	allChirps := []Chirp{}
 	dbStructure, err := db.LoadDB()
 	if err != nil {

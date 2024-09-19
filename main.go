@@ -51,6 +51,7 @@ func main() {
 	mux.HandleFunc("/api/reset", apiCfg.resetHandler)
 	// mux.HandleFunc("POST /api/validate_chirp", apiCfg.validateChirp)
 	mux.HandleFunc("/api/chirps", apiCfg.createChripHandler)
+	mux.HandleFunc("/api/chirps/{chirpId}", apiCfg.singleChirpHandler)
 
 
 	srv := &http.Server{
