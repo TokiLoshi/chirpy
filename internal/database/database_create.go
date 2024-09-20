@@ -5,19 +5,24 @@ import (
 	"strings"
 )
 
-func (db *DB) CreateUser(body string) (User, error) {
+func (db *DB) CreateUser(email, password string) (User, error) {
 	fmt.Println("Creating a new user")
 	db.mux.Lock()
 	defer db.mux.Unlock()
 
 	newUser := User{}
 
-	email := body 
 	dbStructure, err := db.LoadDB()
 	if err != nil {
 		return User{}, fmt.Errorf("error loading db: %w", err)
 	}
 	fmt.Printf("Finished loading db: %v\n", dbStructure)
+
+	for _, user := range dbStructure.Users {
+		if user.Email == email {
+			return User{}, fmt.Errorf("email already exists: %w", err)
+		}
+	}
 
 	newId := highestUserId(dbStructure) + 1 
 	fmt.Printf("Assigning new user: %v\n", newId)
@@ -25,6 +30,7 @@ func (db *DB) CreateUser(body string) (User, error) {
 	newUser = User {
 		Id: newId, 
 		Email: email, 
+		Password: password,
 	}
 	fmt.Printf("New user: %v\n", newUser)
 
