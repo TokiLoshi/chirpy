@@ -1,15 +1,19 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/TokiLoshi/chirpy/internal/database"
+	"github.com/joho/godotenv"
 )
 
 type apiConfig struct {
 	fileserveHits int
 	DB *database.DB
+	jwt []byte
 }
 
 
@@ -34,6 +38,13 @@ func main() {
 		log.Fatalf("Failed to initialize the database: %v", err)
 	}
 
+	envError := godotenv.Load()
+	if envError != nil {
+		log.Fatal("Error loading env file")
+	}
+	secret := os.Getenv("JWT_SECRET")
+	fmt.Printf("Secret: %v\n", secret)
+
 	// Create new multiplexer 
 	mux := http.NewServeMux()
 	// File Server to serve root path 
@@ -43,6 +54,7 @@ func main() {
 	// Handle the root with the middleware 
 	apiCfg := apiConfig{
 		DB: db,
+		jwt: []byte(secret),
 	}
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(handler))
 	// Handle Readiness function
@@ -52,7 +64,9 @@ func main() {
 	// mux.HandleFunc("POST /api/validate_chirp", apiCfg.validateChirp)
 	mux.HandleFunc("/api/chirps", apiCfg.createChripHandler)
 	mux.HandleFunc("/api/chirps/{chirpId}", apiCfg.singleChirpHandler)
+	
 	mux.HandleFunc("POST /api/users", apiCfg.userHandler)
+	mux.HandleFunc("PUT /api/users", apiCfg.userHandler)
 	mux.HandleFunc("POST /api/login", apiCfg.userLoginHandler)
 
 	srv := &http.Server{

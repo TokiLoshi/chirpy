@@ -15,6 +15,7 @@ type User struct {
 	Id int `json:"id"`
 	Email string `json:"email"`
 	Password string `json:"password"`
+	Expires string `json:"expires_in_seconds"`
 }
 
 type DB struct {

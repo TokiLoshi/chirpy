@@ -4,13 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type userParameters struct {
 	Password string `json:"password"`
 	Email string `json:"email"`
+	Expires string `json:"expires_in_seconds"`
 }
 
 type UserResponse struct {
@@ -28,6 +31,24 @@ func CheckPasswordHash(password, hash string) bool {
 	return err == nil
 }
 
+	
+	// Set Subject to stringified version of user id
+	func (c *apiConfig) CreateToken(userId string, expiry int) (string, error) {
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, 
+		jwt.MapClaims {
+			"issuer" : "chirpy",
+			"iat": time.Now().Unix(),
+			// Set ExpiresAt to the current time plus expiration (expires_in_seconds)
+			"exp" : time.Now().Add(time.Duration(expiry) * time.Second).Unix(),
+			"subject" : string(userId),
+		})
+		tokenString, err := token.SignedString([]byte(c.jwt))
+		if err != nil {
+			return "", fmt.Errorf("error signing token string from env: %w", err)
+		}
+		return tokenString, nil
+	}
+
 func (c *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("User trying to login")
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -39,6 +60,8 @@ func (c *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	email := params.Email
 	password := params.Password 
+	expiry := params.Expires
+	fmt.Printf("expiry token from params: %v\n", expiry)
 
 	fmt.Printf("params: %v\n", params)
 	if len(email) == 0 {
@@ -77,6 +100,19 @@ func (c *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusUnauthorized, "incorrect password")
 	} 
 
+	testToken, err := c.CreateToken(string(user.Id), 2)
+	if err != nil {
+		fmt.Printf("error creating test token: %v\n", err)
+	}
+	fmt.Printf("Test token: %v\n", testToken)
+
+
+	// 2. Use token 
+	// Use token.SignedString to sign the token with the secret key 
+	// If expires_in_seconds is not specified  make the default 24 hours 
+	// If client specified number over 24 hours use 24 hours 
+	// Add token to user response 
+	
 	response := UserResponse {
 		Id : user.Id,
 		Email : user.Email,
