@@ -39,7 +39,6 @@ func CheckPasswordHash(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash),[]byte(password))
 	return err == nil
 }
-
 	
 // Set Subject to stringified version of user id
 func (c *apiConfig) CreateToken(userId string, expiry int) (string, error) {
@@ -123,7 +122,6 @@ func (c *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 	} 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
-
 
 }
 
