@@ -65,9 +65,16 @@ func main() {
 	mux.HandleFunc("/api/chirps", apiCfg.createChripHandler)
 	mux.HandleFunc("/api/chirps/{chirpId}", apiCfg.singleChirpHandler)
 	
-	mux.HandleFunc("POST /api/users", apiCfg.userHandler)
-	mux.HandleFunc("PUT /api/users", apiCfg.userHandler)
 	mux.HandleFunc("POST /api/login", apiCfg.userLoginHandler)
+	mux.HandleFunc("/api/users", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			apiCfg.createUserHandler(w, r) 
+		} else if r.Method == http.MethodPut {
+			apiCfg.updateUserHandler(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 
 	srv := &http.Server{
 		Addr: ":" + port,

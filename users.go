@@ -19,6 +19,15 @@ type userParameters struct {
 type UserResponse struct {
 	Id int `json:"id"`
 	Email string `json:"email"`
+	Token string `json:"token"`
+}
+
+type jwtClaims struct {
+	Issuer string 
+	IssuedAt time.Duration 
+	Expires string 
+	Subject string
+	jwt.RegisteredClaims
 }
 
 func HashPassword(password string) (string, error) {
@@ -32,26 +41,27 @@ func CheckPasswordHash(password, hash string) bool {
 }
 
 	
-	// Set Subject to stringified version of user id
-	func (c *apiConfig) CreateToken(userId string, expiry int) (string, error) {
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, 
-		jwt.MapClaims {
-			"issuer" : "chirpy",
-			"iat": time.Now().Unix(),
-			// Set ExpiresAt to the current time plus expiration (expires_in_seconds)
-			"exp" : time.Now().Add(time.Duration(expiry) * time.Second).Unix(),
-			"subject" : string(userId),
-		})
-		tokenString, err := token.SignedString([]byte(c.jwt))
-		if err != nil {
-			return "", fmt.Errorf("error signing token string from env: %w", err)
-		}
-		return tokenString, nil
+// Set Subject to stringified version of user id
+func (c *apiConfig) CreateToken(userId string, expiry int) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, 
+	jwt.MapClaims {
+		"issuer" : "chirpy",
+		"iat": time.Now().Unix(),
+		// Set ExpiresAt to the current time plus expiration (expires_in_seconds)
+		"exp" : time.Now().Add(time.Duration(expiry) * time.Second).Unix(),
+		"subject" : string(userId),
+	})
+	tokenString, err := token.SignedString([]byte(c.jwt))
+	if err != nil {
+		return "", fmt.Errorf("error signing token string from env: %w", err)
 	}
+	return tokenString, nil
+}
 
 func (c *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("User trying to login")
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	
 	var params userParameters 
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
 		respondWithError(w, http.StatusBadRequest, "invalid request")
@@ -100,22 +110,16 @@ func (c *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusUnauthorized, "incorrect password")
 	} 
 
-	testToken, err := c.CreateToken(string(user.Id), 2)
+	userToken, err := c.CreateToken(string(user.Id), 2)
 	if err != nil {
 		fmt.Printf("error creating test token: %v\n", err)
 	}
-	fmt.Printf("Test token: %v\n", testToken)
-
-
-	// 2. Use token 
-	// Use token.SignedString to sign the token with the secret key 
-	// If expires_in_seconds is not specified  make the default 24 hours 
-	// If client specified number over 24 hours use 24 hours 
-	// Add token to user response 
+	fmt.Printf("Test token: %v\n", userToken)
 	
 	response := UserResponse {
 		Id : user.Id,
 		Email : user.Email,
+		Token: userToken,
 	} 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
@@ -123,8 +127,53 @@ func (c *apiConfig) userLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (c *apiConfig) updateUserHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Updating user stuff")
+	fmt.Printf("checking the jwt: %v\n", c.jwt)
+	w.Header().Set("Content-Type", "application/json")
+	tokenString := r.Header.Get("Authorization")
+	fmt.Printf("Token string: %v\n", tokenString)
+	for name, values := range r.Header {
+		for _, value := range values {
+			fmt.Printf("%s: %s\n", name, value)
+		}
+	}
 
-func (c *apiConfig) userHandler(w http.ResponseWriter, r *http.Request) {
+
+	if tokenString == "" {
+		respondWithError(w, http.StatusUnauthorized, "no token in header, user should login first")
+		return
+	}
+	tokenString = tokenString[len("Bearer "):]
+	fmt.Printf("Token string: %v\n", tokenString)
+
+	token, err := jwt.ParseWithClaims(tokenString, &jwtClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(c.jwt), nil
+	})
+
+	fmt.Printf("Token: %v\n", token)
+
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "failed to parse claims")
+		return
+	}
+	
+	if claims, ok := token.Claims.(*jwtClaims); ok && token.Valid {
+	fmt.Printf("Claims: %v\n", claims)
+	var params userParameters 
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		respondWithError(w, http.StatusBadRequest, "invalid user credentials")
+		return
+	}
+	
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(params)
+	}
+
+}
+
+
+func (c *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Trying to get users")
 	// Allows users to be created 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -146,6 +195,8 @@ func (c *apiConfig) userHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "email cannot be empty")
 		return
 	}
+
+	fmt.Printf("Headers stuff: %v/n", r.Header)
 
 
 	hashedPassword, err := HashPassword(params.Password)
