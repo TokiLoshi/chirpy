@@ -6,11 +6,15 @@ import (
 )
 
 
+
 func main() {
 	const port  = "8080"
 	log.Println("hello world, starting server")
 
+	
+
 	mux := http.NewServeMux()
+	mux.Handle("/", http.FileServer(http.Dir("./")))
 
 	server := &http.Server{
 		Addr: ":" + port,
