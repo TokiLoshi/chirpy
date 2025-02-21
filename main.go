@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync/atomic"
 )
 
@@ -38,12 +39,62 @@ func (cfg *apiConfig) resetHandler(w http.ResponseWriter, req *http.Request) {
 
 }
 
+func respondWithError(w http.ResponseWriter, code int, message string) {
+	type errorResponse struct {
+		Error string `json:"error"`
+	}
+	responseError := errorResponse{
+		Error: message,
+	}
+	data, err := json.Marshal(responseError)
+	if err != nil {
+		log.Printf("error marshalling JSON %s", err)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	w.Write(data)
+}
+
+func respondWithJson(w http.ResponseWriter, code int, payload interface{}) {
+	dat, err := json.Marshal(payload)
+	if err != nil {
+		respondWithError(w, 400, "error marshalling JSON")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)	
+	w.Write(dat)
+}
+
+type cleanedResponse struct {
+	CleanedBody string `json:"cleaned_body"`
+}
+
+func cleanChirpBody(chirp string) string {
+	
+	words := strings.Split(chirp, " ")
+	cleanedWords := make([]string, 0, len(words))
+	forbiddenWords := map[string]bool{
+		"kerfuffle": true, 
+		"sharbert": true, 
+		"fornax": true,
+	}
+	for _, word := range words {
+		loweredWord := strings.ToLower(word)
+		if forbiddenWords[loweredWord] {
+			cleanedWords = append(cleanedWords, "****")
+		} else {
+			cleanedWords = append(cleanedWords, word)
+		}
+		
+	}
+	cleanChirp := strings.Join(cleanedWords, " ")
+	return cleanChirp
+}
+
 func validateChirps(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
 		Body string `json:"body"`
-	}
-	type errorResponse struct {
-		Error string `json:"error"`
 	}
 
 	// Decode the request 
@@ -53,50 +104,20 @@ func validateChirps(w http.ResponseWriter, req *http.Request) {
 	// Handle errors decoding the request 
 	err := decoder.Decode(&params)
 	if err != nil {
-		decodeError := errorResponse{
-			Error : "error decoding json data",
-		}
-		data, error := json.Marshal(decodeError)
-		if error != nil {
-			log.Printf("error marshalling JSON %s", err)
-		}
-		log.Printf("Error decoding parameters %s", err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(400)
-		w.Write(data)
+		respondWithError(w, 400, "error decoding json data")
 		return 
 	}
 
 	// Check if chirps length is too long 
-	if len(params.Body) > 140 {
-		errorRespBody := errorResponse{
-			Error: "Chirp is too long",
-		}
-		data, err := json.Marshal(errorRespBody)
-		if err != nil {
-			log.Printf("error marshalling JSON: %s", err)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(400)
-		w.Write(data)
+	maxLength := 140
+	if len(params.Body) > maxLength {
+		respondWithError(w, 400, "Chirp is too long")
 		return 
 	}
-	type correctResponse struct {
-		Valid bool `json:"valid"`
-	}
-	respBody := correctResponse{
-		Valid : true,
-	}
-	dat, err := json.Marshal(respBody)
-	if err != nil {
-		log.Printf("error marshalling JSON: %s", err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(400)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)	
-	w.Write(dat)
+
+	// Check if the chirp is clean 
+	cleanchirp := cleanChirpBody(params.Body)
+	respondWithJson(w, 200, cleanedResponse{cleanchirp})
 
 }
 
