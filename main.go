@@ -1,16 +1,24 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync/atomic"
+
+	"github.com/TokiLoshi/chirpy/internal/database"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
+
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	dbQueries *database.Queries
 }
 
 func(cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -123,9 +131,26 @@ func validateChirps(w http.ResponseWriter, req *http.Request) {
 
 
 func main() {
+
+	// Load the env variables
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	// Open Database connection
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("Failed to open DB: %v", err)
+	}
+	dbQueries := database.New(db)
+
 	const port  = "8080"
 	const filePathRoute = "."
-	apiCfg := &apiConfig{}
+	apiCfg := &apiConfig{
+		dbQueries: dbQueries,
+	}
 	log.Println("hello world, starting server")
 	mux := http.NewServeMux()
 	
