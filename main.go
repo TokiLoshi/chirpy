@@ -61,7 +61,7 @@ func main() {
 
 	// Admin endpoints 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.metricsHandler)	
-	// mux.HandleFunc("POST /admin/reset", apiCfg.resetHandler)
+	mux.HandleFunc("POST /admin/reset-metrics", apiCfg.resetHandler)
 	mux.HandleFunc("POST /admin/reset", apiCfg.adminReset)
 	
 	// Static file serving
@@ -69,8 +69,8 @@ func main() {
 	mux.Handle("/assets/", http.FileServer(http.Dir("./assets")))
 	
 	// API endpoints 
-	mux.HandleFunc("POST /api/validate_chirp", validateChirps)
 	mux.HandleFunc("POST /api/users", apiCfg.validateUser)
+	mux.HandleFunc("POST /api/chirps", apiCfg.createChirp)
 
 	server := &http.Server{
 		Addr: ":" + port,
