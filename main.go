@@ -29,10 +29,19 @@ func main() {
 
 	// Open Database connection
 	dbURL := os.Getenv("DB_URL")
+	log.Printf("DB URL: %s", dbURL)
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatalf("Failed to open DB: %v", err)
 	}
+
+
+	err = db.Ping() 
+	if err != nil {
+		log.Fatalf("Failed to connect to db DB: %v", err)
+	}
+	log.Println("Successfully connected to db")
+
 	dbQueries := database.New(db)
 
 	const port  = "8080"
@@ -52,7 +61,8 @@ func main() {
 
 	// Admin endpoints 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.metricsHandler)	
-	mux.HandleFunc("POST /admin/reset", apiCfg.resetHandler)
+	// mux.HandleFunc("POST /admin/reset", apiCfg.resetHandler)
+	mux.HandleFunc("POST /admin/reset", apiCfg.adminReset)
 	
 	// Static file serving
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filePathRoute)))))
@@ -60,6 +70,7 @@ func main() {
 	
 	// API endpoints 
 	mux.HandleFunc("POST /api/validate_chirp", validateChirps)
+	mux.HandleFunc("POST /api/users", apiCfg.validateUser)
 
 	server := &http.Server{
 		Addr: ":" + port,
