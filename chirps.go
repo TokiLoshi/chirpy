@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -99,3 +100,68 @@ func cleanChirpBody(chirp string) string {
 	return cleanChirp
 }
 
+type ChirpResponse struct {
+	ID uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Body string `json:"body"`
+	UserId uuid.UUID `json:"user_id"`
+}
+
+func (cfg *apiConfig) getAllChirps(w http.ResponseWriter, req *http.Request) {
+	allChirps, err := cfg.dbQueries.GetAllChirps(req.Context())
+	if err != nil {
+		respondWithError(w, 400, "couldn't getAllChirps" + err.Error())
+		return
+	}
+
+	responseChirps := make([]ChirpResponse, len(allChirps))
+	for i, chirp := range allChirps {
+		responseChirps[i] = ChirpResponse {
+			ID: chirp.ID, 
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body: chirp.Body,
+			UserId: chirp.UserID,
+		}
+	}
+
+
+	respondWithJson(w, 200, responseChirps)
+
+
+}
+
+func (cfg *apiConfig) getSingleChirp(w http.ResponseWriter, req *http.Request) {
+	chirpId := req.PathValue("chirpID")
+	fmt.Printf("path: %+v\n", chirpId)
+	if len(chirpId) == 0 {
+		respondWithError(w, 400, "invalid chirp ")
+		return
+	}
+
+	id, err := uuid.Parse(chirpId)
+	if err != nil {
+		respondWithError(w, 400, "invalid id")
+		return
+	}
+
+	singleChirp, err := cfg.dbQueries.GetSingleChirp(req.Context(), id)
+	if err != nil {
+		respondWithError(w, 404, "couldn't get chirp" + err.Error())
+		return
+	}
+
+
+	responseChirp := ChirpResponse {
+		ID: singleChirp.ID,
+		CreatedAt: singleChirp.CreatedAt,
+		UpdatedAt: singleChirp.UpdatedAt, 
+		Body: singleChirp.Body, 
+		UserId: singleChirp.UserID,
+	}
+
+	respondWithJson(w, 200, responseChirp)
+	
+
+}
