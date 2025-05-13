@@ -16,6 +16,7 @@ import (
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	dbQueries *database.Queries
+	jwtSecret string
 }
 
 
@@ -42,12 +43,18 @@ func main() {
 	}
 	log.Println("Successfully connected to db")
 
+	jwtSecretString := os.Getenv("JWT_SECRET")
+	if len(jwtSecretString) == 0 {
+		log.Printf("Failed to extract jwt: %v", jwtSecretString)
+	} 
+
 	dbQueries := database.New(db)
 
 	const port  = "8080"
 	const filePathRoute = "."
 	apiCfg := &apiConfig{
 		dbQueries: dbQueries,
+		jwtSecret: jwtSecretString,
 	}
 	log.Println("hello world, starting server")
 	mux := http.NewServeMux()
@@ -74,6 +81,8 @@ func main() {
 	mux.HandleFunc("GET /api/chirps", apiCfg.getAllChirps)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.getSingleChirp)
 	mux.HandleFunc("POST /api/login", apiCfg.handleLogin)
+	mux.HandleFunc("POST /api/refresh", apiCfg.hanldeRefresh)
+	mux.HandleFunc("POST /api/revoke", apiCfg.handleRevoke)
 
 	server := &http.Server{
 		Addr: ":" + port,
