@@ -1,7 +1,11 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -65,4 +69,36 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 		return userId, nil
 	}
 	return uuid.Nil, fmt.Errorf("Invalid token claims")
+}
+
+func GetBearerToken(headers http.Header) (string, error) {
+	// Auth information coms iin through the Authorization Header 
+	// Value will be Bearer TOKEN_STRING 
+	authInfo := headers.Get("Authorization")
+	if authInfo == "" {
+		return "", fmt.Errorf("No authorization")
+	}
+	// Check for Authorization in the headers and return Token String
+	fields := strings.Fields(authInfo)
+	if len(fields) < 2 || strings.ToLower(fields[0]) != "bearer" {
+		return "", fmt.Errorf("No bearer token")
+	} 
+	tokenString := fields[1]
+	return tokenString, nil 
+	// write a unit thest for it 
+
+}
+
+func MakeRefreshToken() (string, error) {
+	key := make([]byte, 32)
+	_, err := rand.Read(key) 
+
+	if err != nil {
+		newError := fmt.Errorf("error generating random noise for refresh token: %v", err)
+
+		return "", newError
+	}
+	stringifiedToken := hex.EncodeToString(key)
+
+	return stringifiedToken, nil
 }
