@@ -229,3 +229,82 @@ func (cfg *apiConfig) handleRevoke(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(204)
 
 }
+
+func (cfg *apiConfig) handleAuthentication(w http.ResponseWriter, req *http.Request) {
+	type parameters struct {
+		Email string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	// headers must have an access token 
+	authHeader := req.Header.Get("Authorization")
+	if authHeader == "" {
+		respondWithError(w, 401, "Auth header is missing")
+		return
+	}
+
+	// Format for Bearer 
+	fields := strings.Split(authHeader, " ")
+	if len(fields) != 2 || fields[0] != "Bearer" {
+		respondWithError(w, 401, "Malformed Authorization")
+		return
+	}
+
+	tokenString := fields[1]
+
+	userId, err := auth.ValidateJWT(tokenString, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, 401, "Invalid token")
+		return
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	params := parameters{}
+
+	err = decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, 500, "error decoding json data")
+		return
+	}
+
+	newEmail := params.Email 
+	newPassword := params.Password 
+
+	// users should be able to update their own email and password
+	// headers must have a new password and email 
+
+	if newEmail == "" || newPassword == "" {
+		respondWithError(w, 401, "Unauthorized")
+		return
+	}
+
+	// hash the password 
+	hashedPassword, err := auth.HashPassword(newPassword)
+	if err != nil {
+		respondWithError(w, 500, "unable to hash password")
+		return
+	}
+
+
+	dbUser, err := cfg.dbQueries.UpdateUsers(req.Context(), database.UpdateUsersParams{
+		Email: newEmail,
+		HashedPassword: hashedPassword,
+		UpdatedAt: time.Now(),
+		ID: userId,
+	})
+
+	if err != nil {
+		respondWithError(w, 500, "Error updating user password and email")
+		return
+	}
+
+	updatedUser := User {
+		ID: dbUser.ID, 
+		Email: dbUser.Email,
+		CreatedAt: dbUser.CreatedAt, 
+		UpdatedAt: dbUser.UpdatedAt,
+	}
+
+	respondWithJson(w, 200, updatedUser)
+
+}

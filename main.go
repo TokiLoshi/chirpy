@@ -75,14 +75,19 @@ func main() {
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filePathRoute)))))
 	mux.Handle("/assets/", http.FileServer(http.Dir("./assets")))
 	
-	// API endpoints 
+	// User API endpoints 
 	mux.HandleFunc("POST /api/users", apiCfg.validateUser)
-	mux.HandleFunc("POST /api/chirps", apiCfg.createChirp)
-	mux.HandleFunc("GET /api/chirps", apiCfg.getAllChirps)
-	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.getSingleChirp)
 	mux.HandleFunc("POST /api/login", apiCfg.handleLogin)
 	mux.HandleFunc("POST /api/refresh", apiCfg.hanldeRefresh)
 	mux.HandleFunc("POST /api/revoke", apiCfg.handleRevoke)
+	mux.HandleFunc("PUT /api/users", apiCfg.handleAuthentication)
+
+	// Chirp API endpoints 
+	mux.HandleFunc("POST /api/chirps", apiCfg.createChirp)
+	mux.HandleFunc("GET /api/chirps", apiCfg.getAllChirps)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.getSingleChirp)
+	
+	
 
 	server := &http.Server{
 		Addr: ":" + port,
