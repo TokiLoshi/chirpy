@@ -19,6 +19,7 @@ type User struct {
 	Email string `json:"email"`
 	Token string `json:"token"`
 	RefreshToken string `json:"refresh_token"`
+	IsChirpyRed bool `json:"is_chirpy_red"`
 }
 
 type ReturnTokens struct {
@@ -28,7 +29,7 @@ type ReturnTokens struct {
 	Email string `json:"email"`
 	Token string `json:"token"`
 	RefreshToken string `json:"refresh_token"`
-
+		IsChirpyRed bool `json:"is_chirpy_red"`
 }
 
 func (cfg *apiConfig) validateUser(w http.ResponseWriter, req *http.Request) {
@@ -70,6 +71,7 @@ func (cfg *apiConfig) validateUser(w http.ResponseWriter, req *http.Request) {
 		Email: dbUser.Email,
 		CreatedAt: dbUser.CreatedAt,
 		UpdatedAt: dbUser.UpdatedAt,
+		IsChirpyRed: dbUser.IsChirpyRed.Bool,
 	}
 
 	respondWithJson(w, 201, user)
@@ -140,7 +142,7 @@ func (cfg *apiConfig) handleLogin(w http.ResponseWriter, req *http.Request) {
 		Email: userEntry.Email,
 		Token: jwtToken,
 		RefreshToken: refreshEntry.Token,
-	
+		IsChirpyRed: userEntry.IsChirpyRed.Bool,
 	}
 
 	respondWithJson(w, 200, tokens)
@@ -303,8 +305,79 @@ func (cfg *apiConfig) handleAuthentication(w http.ResponseWriter, req *http.Requ
 		Email: dbUser.Email,
 		CreatedAt: dbUser.CreatedAt, 
 		UpdatedAt: dbUser.UpdatedAt,
+		IsChirpyRed: dbUser.IsChirpyRed.Bool,
 	}
 
 	respondWithJson(w, 200, updatedUser)
 
+}
+
+func (cfg *apiConfig) handleUpgrade(w http.ResponseWriter, req *http.Request) {
+	type parameters struct {
+		Event string `json:"event"`
+		Data struct {
+			UserId string `json:"user_id"`
+		}
+	}
+
+	requestApiKey, err := auth.GetAPIkeys(req.Header)
+	if err != nil {
+		respondWithError(w, 401, "Unauthorized")
+		return
+	}
+
+	secretApiKey := cfg.polkaKey
+	if requestApiKey != secretApiKey {
+		respondWithError(w, 401, "Unauthorized")
+		return
+	}
+
+
+	// decode data 
+	decoder := json.NewDecoder(req.Body)
+	params := parameters{}
+	err = decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, 400, "error decoding json data")
+		return 
+	}
+
+	eventType := params.Event 
+	userId := params.Data.UserId 
+
+	// if the event is anything other than user.ugraded return 204 
+	if eventType != "user.upgraded" {
+		respondWithError(w, 204, "incorrect event type")
+	}
+
+	// parse userid 
+	id, err := uuid.Parse(userId)
+	if err != nil {
+		respondWithError(w, 500, "error parsing userId")
+	}
+	
+	// upgrade user in database 
+	dbUser, err := cfg.dbQueries.UpgradeUsers(req.Context(), database.UpgradeUsersParams{
+		ID: id, 
+		UpdatedAt: time.Now(),
+	})
+
+	if err != nil {
+		respondWithError(w, 404, "user could not be found")
+	}
+
+	upgradedUser := User {
+		ID: dbUser.ID, 
+		Email: dbUser.Email,
+		CreatedAt: dbUser.CreatedAt,
+		UpdatedAt: dbUser.UpdatedAt,
+		IsChirpyRed: dbUser.IsChirpyRed.Bool,
+	}
+
+	respondWithJson(w, 204, upgradedUser)
+
+
+	// if the user is upgraded respond with 204 and empty body
+	// if user can't be found respond with 404 
+	// update all the user resources to include is_chirpy_red field 
 }
