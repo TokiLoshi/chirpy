@@ -175,3 +175,55 @@ func (cfg *apiConfig) getSingleChirp(w http.ResponseWriter, req *http.Request) {
 	
 
 }
+
+func (cfg *apiConfig) handleDelete(w http.ResponseWriter, req *http.Request) {
+
+	chirpId := req.PathValue("chirpID")
+	if len(chirpId) == 0 {
+		respondWithError(w, 404, "Invalid Id")
+		return
+	}
+	// This is authentcated so check token in header
+	authHeader := req.Header.Get("Authorization")
+	if authHeader == "" {
+		respondWithError(w, 401, "Auth header is missing")
+		return
+	}
+
+	// Format for Bearer
+	fields := strings.Split(authHeader, " ")
+	if len(fields) != 2 || fields[0] != "Bearer" {
+		respondWithError(w, 401, "Malformed Authorization")
+		return
+	}
+
+	tokenString := fields[1] 
+
+	userId, err := auth.ValidateJWT(tokenString, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, 401, "Invalid token")
+		return
+	}
+
+	id, err := uuid.Parse(chirpId)
+
+	chirpInfo, err := cfg.dbQueries.GetSingleChirp(req.Context(), id)
+	if err != nil {
+		respondWithError(w, 404, "Chirp does not exist")
+		return
+	}
+
+	if chirpInfo.UserID != userId {
+		respondWithError(w, 403, "Unauthorized")
+		return
+	}
+
+	_, err = cfg.dbQueries.DeleteChirp(req.Context(), id)
+	if err != nil {
+		respondWithError(w, 404, "chirp could not be found")
+		return
+	}
+
+	w.WriteHeader(204)
+
+}
