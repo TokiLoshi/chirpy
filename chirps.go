@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -119,11 +120,44 @@ type ChirpResponse struct {
 }
 
 func (cfg *apiConfig) getAllChirps(w http.ResponseWriter, req *http.Request) {
+	// if author id is present return only the chirps for that author 
+	authorId := req.URL.Query().Get("author_id")
+	if authorId != "" {
+		id, err := uuid.Parse(authorId)
+		if err != nil {
+			respondWithError(w, 500, "couldn't parse author id")
+		}
+		authoredChirps, err := cfg.dbQueries.GetAuthoredChirps(req.Context(), id) 
+		if err != nil {
+			respondWithError(w, 404, "couldn't get author's chirps: " + err.Error())
+			return
+		}
+
+		responseChirps := make([]ChirpResponse, len(authoredChirps))
+		for i, chirp := range authoredChirps {
+			responseChirps[i] = ChirpResponse {
+				ID: chirp.ID, 
+				CreatedAt: chirp.CreatedAt,
+				UpdatedAt: chirp.UpdatedAt,
+				Body: chirp.Body,
+				UserId: chirp.UserID,
+			}
+		}
+	
+	
+		respondWithJson(w, 200, responseChirps)
+		return
+	}
+	// if no author id get all the chirps 
 	allChirps, err := cfg.dbQueries.GetAllChirps(req.Context())
 	if err != nil {
 		respondWithError(w, 400, "couldn't getAllChirps" + err.Error())
 		return
 	}
+
+	sortChirps := req.URL.Query().Get("sort") 
+
+	
 
 	responseChirps := make([]ChirpResponse, len(allChirps))
 	for i, chirp := range allChirps {
@@ -134,6 +168,16 @@ func (cfg *apiConfig) getAllChirps(w http.ResponseWriter, req *http.Request) {
 			Body: chirp.Body,
 			UserId: chirp.UserID,
 		}
+	}
+
+	if sortChirps == "desc" {
+		sort.Slice(responseChirps, func(i, j int) bool  { 
+			return responseChirps[i].CreatedAt.After(responseChirps[j].CreatedAt) 
+		})
+	} else {
+		sort.Slice(responseChirps, func(i, j int) bool  { 
+			return responseChirps[i].CreatedAt.Before(responseChirps[i].CreatedAt) 
+		})
 	}
 
 
