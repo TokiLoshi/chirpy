@@ -85,7 +85,6 @@ func GetBearerToken(headers http.Header) (string, error) {
 	} 
 	tokenString := fields[1]
 	return tokenString, nil 
-	// write a unit thest for it 
 
 }
 
@@ -101,4 +100,20 @@ func MakeRefreshToken() (string, error) {
 	stringifiedToken := hex.EncodeToString(key)
 
 	return stringifiedToken, nil
+}
+
+func GetAPIkeys(headers http.Header) (string, error) {
+	// extract the api key from "Authorization" 
+	headerInfo := headers.Get("Authorization")
+	if headerInfo == "" {
+		return "", fmt.Errorf("No authorization information given")
+	}
+	// Follows this structure Authorization: ApiKey THE_KEY_HERE
+	fields := strings.Fields(headerInfo)
+	if len(fields) < 2 || fields[0] != "ApiKey" {
+		return "", fmt.Errorf("No api key in header")
+	}
+	// strip out api key and white space 
+	apiKey := fields[1]
+	return apiKey, nil
 }

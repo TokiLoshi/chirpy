@@ -17,6 +17,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	dbQueries *database.Queries
 	jwtSecret string
+	polkaKey string
 }
 
 
@@ -36,17 +37,24 @@ func main() {
 		log.Fatalf("Failed to open DB: %v", err)
 	}
 
-
+	// Ping to check the database connection 
 	err = db.Ping() 
 	if err != nil {
 		log.Fatalf("Failed to connect to db DB: %v", err)
 	}
 	log.Println("Successfully connected to db")
 
+	// Load jwt secret ont apiConfig 
 	jwtSecretString := os.Getenv("JWT_SECRET")
 	if len(jwtSecretString) == 0 {
 		log.Printf("Failed to extract jwt: %v", jwtSecretString)
 	} 
+
+	// Load polka api key onto apiConfig 
+	polkaKeyString := os.Getenv("POLKA_KEY")
+	if len(polkaKeyString) == 0 {
+		log.Printf("Failed to extract polka key: %v", polkaKeyString)
+	}
 
 	dbQueries := database.New(db)
 
@@ -55,6 +63,7 @@ func main() {
 	apiCfg := &apiConfig{
 		dbQueries: dbQueries,
 		jwtSecret: jwtSecretString,
+		polkaKey: polkaKeyString,
 	}
 	log.Println("hello world, starting server")
 	mux := http.NewServeMux()
@@ -88,6 +97,8 @@ func main() {
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.getSingleChirp)
 	mux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.handleDelete)
 	
+	// web hooks 
+	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.handleUpgrade)
 
 	server := &http.Server{
 		Addr: ":" + port,
